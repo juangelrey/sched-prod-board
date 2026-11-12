@@ -20,3 +20,6 @@ footer { color: #777; font-size: 13px; }
 #updated.stale { color: #b00020; }
 #updated.stale::after { content: ' · stale'; }
 footer code { font-size: 12px; }
+.new-bar { display: block; box-sizing: border-box; width: 100%; max-width: 960px; height: 36px; margin: 0 0 8px; border: 0; border-radius: 6px; font: inherit; font-weight: 600; color: #fff; background: #1f5fbf; cursor: pointer; visibility: hidden; }
+.new-bar.is-on { visibility: visible; }
+.new-bar:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }

@@ -81,21 +81,42 @@ function updateRow(li, i) {
   }
 }
 
-// R1: newest first, new rows at the top. Existing rows are kept (button state, focus), only moved if needed.
-function render(incidents) {
-  const sorted = [...incidents].sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt));
-  const ids = new Set(sorted.map((i) => i.id));
-  for (const [id, li] of rows) if (!ids.has(id)) { li.remove(); rows.delete(id); }
-  let prev = null;
-  for (const i of sorted) {
-    let li = rows.get(i.id);
-    if (!li) { li = makeRow(i); rows.set(i.id, li); } else updateRow(li, i);
-    const want = prev ? prev.nextSibling : list.firstChild;
-    if (want !== li) list.insertBefore(li, want);
-    prev = li;
-  }
-  empty.hidden = sorted.length > 0;
+// Product decision (after SCHED-4511 review): the list holds still while it is on screen. Incidents that
+// arrive while on screen wait behind the "N new" bar; a click on the bar brings them in at the top.
+// Rows already on screen are never moved or removed by a refresh; only their fields update in place.
+const pending = new Map(); // id -> incident, arrived but not shown yet
+const newBar = board.querySelector('[data-testid="new-bar"]');
+
+function showPending() {
+  const fresh = [...pending.values()].sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt));
+  pending.clear();
+  const frag = document.createDocumentFragment();
+  for (const i of fresh) { const li = makeRow(i); rows.set(i.id, li); frag.append(li); }
+  list.prepend(frag);
+  updateBar();
 }
+
+function updateBar() {
+  const n = pending.size;
+  newBar.textContent = n ? `${n} new incident${n === 1 ? '' : 's'} · show` : '';
+  newBar.classList.toggle('is-on', n > 0); // space is reserved either way, so the bar never pushes rows
+  newBar.disabled = n === 0;
+  empty.hidden = rows.size > 0 || n > 0;
+}
+
+function render(incidents) {
+  for (const i of incidents) {
+    const li = rows.get(i.id);
+    if (li) updateRow(li, i);
+    else pending.set(i.id, i); // new, or already waiting: keep its latest fields
+  }
+  // Nothing on screen to hold still (first load, empty board, tab in the background): show them now.
+  if (pending.size && (rows.size === 0 || document.hidden)) showPending();
+  updateBar();
+}
+
+newBar.addEventListener('click', showPending);
+document.addEventListener('visibilitychange', () => { if (document.hidden && pending.size) showPending(); });
 
 let loaded = false;
 async function tick() {
