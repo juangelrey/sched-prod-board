@@ -68,6 +68,19 @@ function makeRow(i) {
   return li;
 }
 
+// A refresh can change a known incident's fields: update them in place, keep the Ack button / mark.
+function updateRow(li, i) {
+  li.className = `row ${i.severity}${acked.has(i.id) ? ' is-acked' : ''}`;
+  li.querySelector('.sev').textContent = i.severity;
+  li.querySelector('.what').textContent = `${i.service} · ${i.region} · ${i.summary}`;
+  const time = li.querySelector('time');
+  if (time.getAttribute('datetime') !== i.openedAt) {
+    time.setAttribute('datetime', i.openedAt);
+    time.title = i.openedAt;
+    time.textContent = timeFmt.format(new Date(i.openedAt));
+  }
+}
+
 // R1: newest first, new rows at the top. Existing rows are kept (button state, focus), only moved if needed.
 function render(incidents) {
   const sorted = [...incidents].sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt));
@@ -76,7 +89,7 @@ function render(incidents) {
   let prev = null;
   for (const i of sorted) {
     let li = rows.get(i.id);
-    if (!li) { li = makeRow(i); rows.set(i.id, li); }
+    if (!li) { li = makeRow(i); rows.set(i.id, li); } else updateRow(li, i);
     const want = prev ? prev.nextSibling : list.firstChild;
     if (want !== li) list.insertBefore(li, want);
     prev = li;
